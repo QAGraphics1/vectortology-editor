@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vectortology Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080f; --bg-dot: rgba(255,255,255,.03);
+  --surface: rgba(14,17,28,.88); --surface-solid: #0e111c;
+  --surface2: rgba(20,24,40,.92); --surface2-solid: #141828;
+  --surface3: #1c2038; --surface-glass: rgba(16,20,34,.72);
+  --border: rgba(56,64,104,.4); --border2: rgba(80,90,140,.35); --border-glow: rgba(0,180,255,.15);
+  --text: #e8ecf8; --text2: #7a84a8; --text3: #464e6e;
+  --accent: #00b4ff; --accent2: #0090d0; --accent-dim: rgba(0,180,255,.08); --accent-glow: rgba(0,180,255,.2);
+  --green: #00e09e; --green-dim: rgba(0,224,158,.08);
+  --orange: #ff9f1a; --orange-dim: rgba(255,159,26,.08); --orange-glow: rgba(255,159,26,.35);
+  --red: #ff3d5a; --red-dim: rgba(255,61,90,.08);
+  --purple: #a78bfa; --purple-dim: rgba(167,139,250,.08);
+  --cyan: #22d3ee; --cyan-dim: rgba(34,211,238,.08);
+  --yellow: #ffd666;
+  --radius: 10px; --radius-sm: 7px; --radius-xs: 5px;
+  --font-ui: 'Urbanist', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+
+/* dot-grid background atmosphere */
+body {
+  font-family: var(--font-ui); background: var(--bg); color: var(--text);
+  min-height: 100vh; overflow: hidden;
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--bg-dot) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* subtle grain overlay */
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  opacity: .015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+::selection { background: rgba(0,180,255,.25); color: #fff; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(120,130,170,.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120,130,170,.35); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes pulseGlow { 0%,100% { box-shadow: 0 0 4px var(--orange-glow); } 50% { box-shadow: 0 0 10px var(--orange-glow), 0 0 20px rgba(255,159,26,.12); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+/* ── HEADER ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid var(--border); padding: 0 28px; height: 58px;
+  flex-shrink: 0; user-select: none; position: relative; z-index: 10;
+}
+.header::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-glow) 30%, var(--accent-glow) 70%, transparent);
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+.header-logo .logo-box {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex-shrink: 0; border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), #0070c0);
+  box-shadow: 0 2px 8px rgba(0,180,255,.25), inset 0 1px 0 rgba(255,255,255,.1);
+}
+.header-logo .logo-box svg { height: 18px; width: auto; color: #fff; }
+.header-sep { width: 1px; height: 22px; background: var(--border2); }
+.header-subtitle {
+  color: var(--text3); font-size: 11px; font-weight: 500; white-space: nowrap;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.header-right { display: flex; align-items: center; gap: 12px; }
+.header-stat { font-size: 12px; color: var(--text2); padding: 0 14px; font-weight: 500; letter-spacing: -.01em; }
+.header-stat b { color: var(--accent); font-weight: 700; font-family: var(--font-mono); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 18px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface2); backdrop-filter: blur(8px);
+  color: var(--text); font-size: 13px; font-weight: 600; font-family: var(--font-ui);
+  cursor: pointer; transition: all .25s var(--ease-out); white-space: nowrap;
+  letter-spacing: -.01em;
+}
+.btn:hover { border-color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 16px var(--accent-dim); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: var(--accent); color: #fff; box-shadow: 0 2px 12px rgba(0,180,255,.2); }
+.btn-primary:hover { box-shadow: 0 4px 20px rgba(0,180,255,.3); background: linear-gradient(135deg, #1ac0ff, var(--accent)); }
+.btn-primary:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
+.btn-save { background: var(--green-dim); border-color: rgba(0,224,158,.3); color: var(--green); }
+.btn-save:hover { background: var(--green); color: #fff; box-shadow: 0 4px 20px rgba(0,224,158,.25); border-color: var(--green); }
+.btn-save:disabled { opacity: .3; cursor: default; pointer-events: none; }
+.btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── LAYOUT ── */
+.app { display: grid; grid-template-columns: 272px 1fr; grid-template-rows: 1fr; height: calc(100vh - 58px); transition: grid-template-columns .35s var(--ease-out); }
+.app.detail-open { grid-template-columns: 272px 1fr 450px; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--surface); backdrop-filter: blur(16px);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+  animation: slideInLeft .4s var(--ease-out);
+}
+.sidebar-search { padding: 14px; border-bottom: 1px solid var(--border); position: relative; }
+.sidebar-search input {
+  width: 100%; padding: 9px 14px 9px 36px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: rgba(0,0,0,.25); color: var(--text);
+  font-size: 13px; font-family: var(--font-ui); font-weight: 500;
+  outline: none; transition: all .25s var(--ease-out);
+}
+.sidebar-search input::placeholder { color: var(--text3); font-weight: 400; }
+.sidebar-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim), inset 0 0 12px rgba(0,180,255,.03); }
+.sidebar-search svg { position: absolute; left: 26px; top: 50%; transform: translateY(-50%); color: var(--text3); width: 14px; height: 14px; transition: color .2s; }
+.sidebar-search:focus-within svg { color: var(--accent); }
+.sidebar-tree { flex: 1; overflow-y: auto; padding: 6px 0; }
+.tree-node { user-select: none; }
+.tree-header {
+  display: flex; align-items: center; gap: 5px; padding: 7px 14px;
+  cursor: pointer; transition: all .15s var(--ease-out); font-size: 13px; font-weight: 500;
+  border-left: 2px solid transparent; margin-left: -1px;
+}
+.tree-header:hover { background: rgba(255,255,255,.03); }
+.tree-header.active { background: var(--accent-dim); color: var(--accent); border-left-color: var(--accent); }
+.tree-arrow { width: 14px; height: 14px; color: var(--text3); transition: transform .2s var(--ease-out); flex-shrink: 0; }
+.tree-arrow.open { transform: rotate(90deg); }
+.tree-icon { width: 15px; height: 15px; color: var(--text3); flex-shrink: 0; }
+.tree-header.active .tree-icon { color: var(--accent); }
+.tree-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.01em; }
+.tree-count {
+  font-size: 10px; font-family: var(--font-mono); font-weight: 500;
+  color: var(--text3); min-width: 28px; text-align: right;
+  background: rgba(255,255,255,.03); padding: 1px 6px; border-radius: 8px;
+}
+.tree-children { display: none; padding-left: 14px; }
+.tree-children.open { display: block; }
+.tree-leaf {
+  padding: 5px 14px 5px 38px; font-size: 12px; font-weight: 500;
+  cursor: pointer; color: var(--text2); transition: all .15s var(--ease-out);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-left: 2px solid transparent; margin-left: -1px;
+}
+.tree-leaf:hover { background: rgba(255,255,255,.03); color: var(--text); }
+.tree-leaf.active { background: var(--accent-dim); color: var(--accent); border-left-color: var(--accent); }
+
+/* ── MAIN AREA ── */
+.main { display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.main-toolbar {
+  display: flex; align-items: center; gap: 14px; padding: 12px 24px;
+  border-bottom: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(12px);
+  flex-shrink: 0; flex-wrap: wrap;
+}
+.main-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 120px; letter-spacing: -.02em; }
+.main-title span { color: var(--text3); font-weight: 400; font-size: 13px; margin-left: 8px; }
+.sort-select {
+  padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: transparent; color: var(--text); font-size: 12px; font-family: var(--font-ui);
+  font-weight: 500; outline: none; cursor: pointer;
+}
+.sort-select:focus { border-color: var(--accent); }
+
+.main-grid { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 14px; }
+
+/* ── SVG CARDS ── */
+.svg-card {
+  background: var(--surface-glass); backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; transition: all .3s var(--ease-out); position: relative; overflow: hidden;
+  animation: fadeInUp .4s var(--ease-out) both;
+}
+.svg-card:nth-child(n) { animation-delay: calc(var(--i, 0) * 25ms); }
+.svg-card:hover { border-color: rgba(0,180,255,.4); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(0,180,255,.1); }
+.svg-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 4px 20px rgba(0,180,255,.15); }
+.svg-card.dirty::after {
+  content: ''; position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--orange);
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+.svg-preview {
+  width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.2); padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.015) 1px, transparent 0);
+  background-size: 16px 16px;
+}
+.svg-preview img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.3)); }
+.svg-card-info { padding: 10px 12px; }
+.svg-card-name { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.01em; }
+.svg-card-meta { font-size: 10px; font-family: var(--font-mono); color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+
+/* ── DETAIL PANEL ── */
+.detail {
+  background: var(--surface); backdrop-filter: blur(20px) saturate(1.3);
+  border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+  animation: slideInRight .35s var(--ease-out);
+}
+.detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.detail-header h2 { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; letter-spacing: -.02em; }
+.detail-close {
+  background: none; border: 1px solid var(--border); color: var(--text2); font-size: 16px;
+  cursor: pointer; padding: 4px 8px; border-radius: var(--radius-xs);
+  transition: all .15s var(--ease-out);
+}
+.detail-close:hover { color: var(--text); border-color: var(--red); color: var(--red); background: var(--red-dim); }
+.detail-preview {
+  background: rgba(0,0,0,.25); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; max-height: 200px; flex-shrink: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.02) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+.detail-preview img { max-width: 100%; max-height: 160px; object-fit: contain; filter: drop-shadow(0 4px 16px rgba(0,0,0,.4)); }
+.detail-body { flex: 1; overflow-y: auto; padding: 18px; }
+.detail-actions {
+  padding: 14px 18px; border-top: 1px solid var(--border);
+  display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0;
+  background: rgba(0,0,0,.15);
+}
+
+/* ── FORM FIELDS ── */
+.field { margin-bottom: 16px; }
+.field-label {
+  font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+}
+.field-label code {
+  font-size: 9px; color: var(--text3); font-family: var(--font-mono); font-weight: 500;
+  opacity: .6; padding: 1px 5px; background: rgba(255,255,255,.03); border-radius: 3px;
+}
+.field input[type="text"], .field textarea, .field select {
+  width: 100%; padding: 8px 12px; border-radius: var(--radius-xs);
+  border: 1px solid var(--border); background: rgba(0,0,0,.25); color: var(--text);
+  font-size: 13px; font-family: var(--font-ui); font-weight: 500; outline: none;
+  transition: all .25s var(--ease-out);
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.field textarea { resize: vertical; min-height: 56px; }
+.field select { cursor: pointer; }
+.field-hint { font-size: 10px; color: var(--text3); margin-top: 4px; }
+.mixed-field { border-style: dashed !important; }
+.mixed-field::placeholder { color: var(--orange); opacity: .7; font-style: italic; }
+
+/* ── CHIP EDITOR ── */
+.chip-editor {
+  display: flex; flex-wrap: wrap; gap: 5px; padding: 6px 8px;
+  border-radius: var(--radius-xs); border: 1px solid var(--border);
+  background: rgba(0,0,0,.25); min-height: 36px; align-items: center;
+  cursor: text; transition: all .25s var(--ease-out);
+}
+.chip-editor:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 4px; font-size: 11px; font-family: var(--font-mono); font-weight: 500;
+  white-space: nowrap; animation: scaleIn .2s var(--ease-spring);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.chip .chip-x {
+  cursor: pointer; opacity: .4; font-size: 13px; line-height: 1; margin-left: 3px;
+  transition: opacity .15s; font-family: var(--font-ui);
+}
+.chip .chip-x:hover { opacity: 1; }
+.chip-input {
+  border: none; background: none; outline: none; color: var(--text);
+  font-size: 12px; font-family: var(--font-mono); font-weight: 500;
+  min-width: 60px; flex: 1;
+}
+.chip-input::placeholder { color: var(--text3); }
+
+/* marker chip colors by category — refined with slight gradients */
+.chip-entity { background: linear-gradient(135deg, #142244, #1a2d52); color: #68a5f8; }
+.chip-equipment { background: linear-gradient(135deg, #0d2e22, #143d2e); color: #2ee8a8; }
+.chip-motor { background: linear-gradient(135deg, #2a2210, #352c14); color: #ffb740; }
+.chip-medium { background: linear-gradient(135deg, #0d2230, #122d3e); color: #30daf0; }
+.chip-descriptor { background: linear-gradient(135deg, #201646, #2a1f55); color: #b8a0ff; }
+.chip-process { background: linear-gradient(135deg, #301018, #3e141f); color: #ff5070; }
+.chip-point { background: linear-gradient(135deg, #142244, #1a2d52); color: #68a5f8; }
+.chip-quantity { background: linear-gradient(135deg, #2a2210, #352c14); color: #ffe080; }
+.chip-system { background: linear-gradient(135deg, #0d2e22, #143d2e); color: #2ee8a8; }
+.chip-operational { background: linear-gradient(135deg, #2a2210, #352c14); color: #ffb740; }
+.chip-conduit { background: linear-gradient(135deg, #0d2230, #122d3e); color: #30daf0; }
+.chip-misc { background: rgba(255,255,255,.04); color: var(--text2); }
+.chip-custom { background: rgba(255,255,255,.04); color: var(--text); border: 1px dashed var(--border2); }
+
+/* ── AUTOCOMPLETE DROPDOWN ── */
+.autocomplete-wrap { position: relative; }
+.autocomplete-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface2-solid); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03);
+  z-index: 50; max-height: 320px; overflow-y: auto; display: none;
+  animation: scaleIn .2s var(--ease-out);
+}
+.autocomplete-dropdown.open { display: block; }
+.ac-group-header {
+  padding: 7px 14px; font-size: 9px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .1em;
+  background: rgba(0,0,0,.3); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1;
+}
+.ac-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  cursor: pointer; transition: all .12s var(--ease-out);
+  border-left: 2px solid transparent;
+}
+.ac-item:hover, .ac-item.highlighted { background: var(--accent-dim); border-left-color: var(--accent); }
+.ac-item.applied { opacity: .35; }
+.ac-item-name { font-size: 12px; font-family: var(--font-mono); font-weight: 600; flex-shrink: 0; letter-spacing: -.01em; }
+.ac-item-lib {
+  font-size: 8px; font-weight: 700; font-family: var(--font-mono);
+  padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,.05);
+  color: var(--text3); flex-shrink: 0; text-transform: uppercase; letter-spacing: .04em;
+}
+.ac-item-doc { font-size: 11px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-weight: 400; }
+.ac-item-check { color: var(--green); font-size: 13px; flex-shrink: 0; }
+.ac-custom {
+  padding: 10px 14px; font-size: 12px; color: var(--accent); cursor: pointer;
+  border-top: 1px solid var(--border); font-weight: 600;
+}
+.ac-custom:hover { background: var(--accent-dim); }
+
+/* ── TAGS KEY:VALUE EDITOR ── */
+.kv-editor { display: flex; flex-direction: column; gap: 5px; }
+.kv-row { display: flex; gap: 5px; align-items: center; animation: fadeInUp .2s var(--ease-out); min-width: 0; }
+.kv-row input, .kv-row select {
+  padding: 6px 9px; border-radius: var(--radius-xs); border: 1px solid var(--border);
+  background: rgba(0,0,0,.25); color: var(--text); font-size: 12px;
+  font-family: var(--font-mono); font-weight: 500; outline: none;
+  transition: border-color .2s; min-width: 0;
+}
+.kv-row input:focus, .kv-row select:focus { border-color: var(--accent); }
+.kv-key { flex: 0 0 40%; min-width: 0; }
+.kv-val { flex: 1; min-width: 0; }
+.kv-remove {
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  font-size: 15px; padding: 3px 5px; border-radius: 3px; transition: all .15s;
+}
+.kv-remove:hover { color: var(--red); background: var(--red-dim); }
+.kv-add {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+  font-size: 11px; font-weight: 600; color: var(--accent); font-family: var(--font-ui);
+  background: none; border: 1px dashed rgba(0,180,255,.25);
+  border-radius: var(--radius-xs); cursor: pointer; margin-top: 4px;
+  transition: all .2s var(--ease-out);
+}
+.kv-add:hover { border-color: var(--accent); background: var(--accent-dim); border-style: solid; }
+
+/* ── EMPTY/LOADING STATES ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; color: var(--text2); text-align: center; padding: 40px;
+  animation: fadeIn .5s var(--ease-out);
+}
+.empty-state h3 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; letter-spacing: -.03em; }
+.empty-state p { font-size: 13px; max-width: 380px; line-height: 1.7; margin-bottom: 24px; font-weight: 400; }
+.empty-icon { width: 56px; height: 56px; color: var(--text3); margin-bottom: 20px; opacity: .5; }
+.progress-bar { width: 260px; height: 3px; background: rgba(255,255,255,.05); border-radius: 2px; overflow: hidden; margin-top: 16px; }
+.progress-fill {
+  height: 100%; border-radius: 2px; transition: width .3s; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+  box-shadow: 0 0 10px rgba(0,180,255,.3);
+}
+.loading-text { font-size: 11px; font-family: var(--font-mono); color: var(--text3); margin-top: 10px; }
+
+/* ── BADGE ── */
+.dirty-badge {
+  background: linear-gradient(135deg, var(--orange), #ff7a00); color: #000;
+  font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 10px;
+  letter-spacing: .02em; text-transform: uppercase; margin-left: 8px;
+}
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 28px; right: 28px;
+  background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 22px;
+  font-size: 13px; font-weight: 600;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  z-index: 300; transform: translateY(80px); opacity: 0;
+  transition: all .35s var(--ease-spring);
+  backdrop-filter: blur(12px);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(0,224,158,.4); color: var(--green); }
+.toast.error { border-color: rgba(255,61,90,.4); color: var(--red); }
+
+/* ── UNSUPPORTED BROWSER ── */
+.unsupported {
+  display: none; position: fixed; inset: 0; background: var(--bg); z-index: 999;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 40px; flex-direction: column; gap: 20px;
+}
+.unsupported h2 { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+.unsupported p { color: var(--text2); font-size: 14px; max-width: 420px; line-height: 1.7; font-weight: 400; }
+</style>
+</head>
+<body>
+
+<div class="unsupported" id="unsupported">
+  <h2>Browser Not Supported</h2>
+  <p>This tool requires the File System Access API. Please use Chrome, Edge, or another Chromium-based browser (version 86+).</p>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 904 789" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g transform="matrix(1,0,0,1,-9655.21,-124.738)"><g transform="matrix(4.16667,0,0,4.16667,9375,0)"><g transform="matrix(1,0,0,1,67.2502,29.9371)"><path d="M0,91.196L48.378,91.196L76.792,41.981L76.792,41.946L134.39,41.946L158.608,0L52.652,0L0,91.196Z" style="fill:currentColor;fill-rule:nonzero;"/></g></g><g transform="matrix(4.16667,0,0,4.16667,9375,0)"><g transform="matrix(-0.500001,-0.866025,-0.866025,0.500001,247.569,54.8313)"><path d="M-78.473,3.194L26.157,3.194L1.844,45.306L-102.786,45.305L-78.473,3.194Z" style="fill:currentColor;fill-rule:nonzero;"/></g></g><g transform="matrix(4.16667,0,0,4.16667,9375,0)"><g transform="matrix(1,0,0,1,227.228,128.133)"><path d="M0,91L-24.188,49.106L-83.067,49.106L-83.1,49.125L-83.111,49.106L-83.128,49.106L-83.128,49.075L-111.462,0L-159.379,0L-106.84,91L0,91Z" style="fill:currentColor;fill-rule:nonzero;"/></g></g><g transform="matrix(4.16667,0,0,4.16667,9375,0)"><g transform="matrix(1,0,0,1,282.032,128.133)"><path d="M0,91L-52.539,0L-158.182,0L-133.873,42.106L-74.986,42.106L-74.986,42.127L-74.95,42.106L-46.721,91L0,91Z" style="fill:currentColor;fill-rule:nonzero;"/></g></g></g></svg>
+      </div>
+      Vectortology Editor
+    </div>
+    <div class="header-sep"></div>
+    <div class="header-subtitle">SVG Metadata</div>
+  </div>
+  <div class="header-right">
+    <span class="header-stat" id="headerStats"></span>
+    <button class="btn" id="btnOpen" onclick="openDirectory()">
+      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Open Folder
+    </button>
+    <button class="btn btn-save" id="btnSaveAll" disabled onclick="saveAll()">
+      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      <span id="saveLabel">Save All</span>
+    </button>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="sidebarSearch" placeholder="Search symbols..." oninput="filterSidebar()" />
+    </div>
+    <div class="sidebar-tree" id="sidebarTree"></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="mainArea">
+    <div class="main-toolbar" id="mainToolbar" style="display:none">
+      <div class="main-title" id="mainTitle">All Symbols</div>
+      <select class="sort-select" onchange="setSort(this.value)">
+        <option value="name">Name A-Z</option>
+        <option value="name-desc">Name Z-A</option>
+        <option value="dirty">Modified First</option>
+      </select>
+    </div>
+    <div class="main-grid" id="mainGrid">
+      <div class="empty-state" id="emptyState">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          <line x1="12" y1="11" x2="12" y2="17" stroke-dasharray="1.5 2"/>
+          <line x1="9" y1="14" x2="15" y2="14" stroke-dasharray="1.5 2"/>
+        </svg>
+        <h3>Open a symbol library</h3>
+        <p>Select a directory containing SVG symbols to browse, search, and edit their Haystack metadata tags in place.</p>
+        <button class="btn btn-primary" onclick="openDirectory()">
+          <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Open Folder
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// TAG VOCABULARY DATA
+// ═══════════════════════════════════════════════════════════════════
+
+const HAYSTACK_TAGS = [
+  // ── Entity ──
+  {n:"equip",cat:"Entity",lib:"phIoT",doc:"Equipment asset"},
+  {n:"point",cat:"Entity",lib:"phIoT",doc:"Data point such as sensor, command, or setpoint"},
+  {n:"site",cat:"Entity",lib:"ph",doc:"Geographic location or building"},
+  {n:"space",cat:"Entity",lib:"phIoT",doc:"Enclosed space or zone within a site"},
+  {n:"device",cat:"Entity",lib:"phIoT",doc:"Microprocessor based hardware device"},
+  {n:"network",cat:"Entity",lib:"phIoT",doc:"Communication network"},
+  {n:"weatherStation",cat:"Entity",lib:"phIoT",doc:"Weather station"},
+
+  // ── Equipment: Air Handling ──
+  {n:"ahu",cat:"Equipment",lib:"phIoT",doc:"Air Handling Unit"},
+  {n:"doas",cat:"Equipment",lib:"phIoT",doc:"Dedicated Outside Air System"},
+  {n:"mau",cat:"Equipment",lib:"phIoT",doc:"Makeup Air Unit"},
+  {n:"rtu",cat:"Equipment",lib:"phIoT",doc:"Rooftop Unit"},
+  {n:"fcu",cat:"Equipment",lib:"phIoT",doc:"Fan Coil Unit"},
+  {n:"unitVent",cat:"Equipment",lib:"phIoT",doc:"Unit Ventilator"},
+  {n:"crac",cat:"Equipment",lib:"phIoT",doc:"Computer Room Air Conditioner"},
+  {n:"airHandlingEquip",cat:"Equipment",lib:"phIoT",doc:"Air handling equipment (abstract)"},
+  {n:"airTerminalUnit",cat:"Equipment",lib:"phIoT",doc:"Terminal unit for air distribution"},
+  {n:"humidifier",cat:"Equipment",lib:"phIoT",doc:"Humidity addition equipment"},
+
+  // ── Equipment: VAV ──
+  {n:"vav",cat:"Equipment",lib:"phIoT",doc:"Variable Air Volume terminal unit"},
+  {n:"chilledBeam",cat:"Equipment",lib:"phIoT",doc:"Chilled beam terminal unit"},
+  {n:"perimeterHeat",cat:"Equipment",lib:"phIoT",doc:"Auxiliary perimeter heating"},
+
+  // ── Equipment: Chiller/Cooling ──
+  {n:"chiller",cat:"Equipment",lib:"phIoT",doc:"Refrigeration machine for cooling"},
+  {n:"coolingTower",cat:"Equipment",lib:"phIoT",doc:"Heat rejection to atmosphere via evaporation"},
+  {n:"heatExchanger",cat:"Equipment",lib:"phIoT",doc:"Heat transfer between fluids"},
+
+  // ── Equipment: Heating ──
+  {n:"boiler",cat:"Equipment",lib:"phIoT",doc:"Hot water or steam generation"},
+  {n:"furnace",cat:"Equipment",lib:"phIoT",doc:"Heating equipment using combustion"},
+  {n:"radiator",cat:"Equipment",lib:"phIoT",doc:"Heat distribution via radiation/convection"},
+
+  // ── Equipment: Plant ──
+  {n:"plant",cat:"Equipment",lib:"phIoT",doc:"Central plant equipment"},
+
+  // ── Equipment: Meter ──
+  {n:"meter",cat:"Equipment",lib:"phIoT",doc:"Measurement device"},
+  {n:"elecMeter",cat:"Equipment",lib:"phIoT",doc:"Electricity meter"},
+  {n:"flowMeter",cat:"Equipment",lib:"phIoT",doc:"Flow/volume meter"},
+
+  // ── Equipment: Tank ──
+  {n:"tank",cat:"Equipment",lib:"phIoT",doc:"Storage vessel for substances"},
+
+  // ── Equipment: Misc ──
+  {n:"coil",cat:"Equipment",lib:"phIoT",doc:"Heat exchange coil in air stream"},
+  {n:"heatingCoil",cat:"Equipment",lib:"phIoT",doc:"Coil used for heating"},
+  {n:"coolingCoil",cat:"Equipment",lib:"phIoT",doc:"Coil used for cooling"},
+  {n:"filter",cat:"Equipment",lib:"phIoT",doc:"Air or fluid filtration device"},
+  {n:"luminaire",cat:"Equipment",lib:"phIoT",doc:"Light fixture"},
+  {n:"battery",cat:"Equipment",lib:"phIoT",doc:"Electric energy storage"},
+  {n:"ups",cat:"Equipment",lib:"phIoT",doc:"Uninterruptible power supply"},
+
+  // ── Motor/Actuator ──
+  {n:"motor",cat:"Motor/Actuator",lib:"phIoT",doc:"Electrical to mechanical energy conversion"},
+  {n:"fan",cat:"Motor/Actuator",lib:"phIoT",doc:"Fan equipment or point"},
+  {n:"pump",cat:"Motor/Actuator",lib:"phIoT",doc:"Pump equipment or point"},
+  {n:"actuator",cat:"Motor/Actuator",lib:"phIoT",doc:"Movement/control mechanism"},
+  {n:"damper",cat:"Motor/Actuator",lib:"phIoT",doc:"Air flow control device"},
+  {n:"valve",cat:"Motor/Actuator",lib:"phIoT",doc:"Fluid flow control device"},
+  {n:"vfd",cat:"Motor/Actuator",lib:"phIoT",doc:"Variable frequency drive"},
+
+  // ── Medium ──
+  {n:"air",cat:"Medium",lib:"phScience",doc:"Mixture of gases in atmosphere"},
+  {n:"water",cat:"Medium",lib:"phScience",doc:"Water in liquid form"},
+  {n:"steam",cat:"Medium",lib:"phScience",doc:"Water vapor"},
+  {n:"ice",cat:"Medium",lib:"phScience",doc:"Water in solid form"},
+  {n:"gas",cat:"Medium",lib:"phScience",doc:"Substance with no definite volume or shape"},
+  {n:"liquid",cat:"Medium",lib:"phScience",doc:"Substance with definite volume"},
+  {n:"fluid",cat:"Medium",lib:"phScience",doc:"Liquid or gas substance"},
+  {n:"refrig",cat:"Medium",lib:"phIoT",doc:"Refrigerant fluid"},
+  {n:"naturalGas",cat:"Medium",lib:"phIoT",doc:"Methane/hydrocarbon gas"},
+  {n:"propane",cat:"Medium",lib:"phIoT",doc:"Propane gas (C3H8)"},
+  {n:"fuelOil",cat:"Medium",lib:"phIoT",doc:"Petroleum fuel oil"},
+  {n:"diesel",cat:"Medium",lib:"phIoT",doc:"Diesel fuel"},
+  {n:"gasoline",cat:"Medium",lib:"phIoT",doc:"Petroleum gasoline fuel"},
+  {n:"coal",cat:"Medium",lib:"phIoT",doc:"Combustible rock fuel"},
+  {n:"biomass",cat:"Medium",lib:"phIoT",doc:"Plant/animal derived fuel"},
+  {n:"condensate",cat:"Medium",lib:"phIoT",doc:"Condensed steam/liquid"},
+
+  // ── Medium: Water Subtypes ──
+  {n:"chilledWater",cat:"Medium",lib:"phIoT",doc:"Chilled water for HVAC cooling"},
+  {n:"hotWater",cat:"Medium",lib:"phIoT",doc:"Hot water for heating"},
+  {n:"condenserWater",cat:"Medium",lib:"phIoT",doc:"Condenser water loop"},
+  {n:"domesticWater",cat:"Medium",lib:"phIoT",doc:"Potable domestic water"},
+  {n:"coldWater",cat:"Medium",lib:"phIoT",doc:"Cold supply water"},
+  {n:"warmWater",cat:"Medium",lib:"phIoT",doc:"Passively warm water"},
+  {n:"coolWater",cat:"Medium",lib:"phIoT",doc:"Passively cool water"},
+  {n:"blowdownWater",cat:"Medium",lib:"phIoT",doc:"Water for mineral removal"},
+  {n:"makeupWater",cat:"Medium",lib:"phIoT",doc:"Replacement water"},
+  {n:"groundWater",cat:"Medium",lib:"phIoT",doc:"Well/ground source water"},
+  {n:"purgeWater",cat:"Medium",lib:"phIoT",doc:"Water for contamination removal"},
+
+  // ── Descriptor ──
+  {n:"hvac",cat:"Descriptor",lib:"phIoT",doc:"Heating, ventilation, air conditioning"},
+  {n:"elec",cat:"Descriptor",lib:"phIoT",doc:"Electrical system related"},
+  {n:"lighting",cat:"Descriptor",lib:"phIoT",doc:"Lighting system related"},
+  {n:"dx",cat:"Descriptor",lib:"phIoT",doc:"Direct expansion (refrigerant based)"},
+  {n:"hot",cat:"Descriptor",lib:"phIoT",doc:"Hot temperature marker"},
+  {n:"cold",cat:"Descriptor",lib:"phIoT",doc:"Cold temperature marker"},
+  {n:"chilled",cat:"Descriptor",lib:"phIoT",doc:"Chilled (mechanically cooled)"},
+  {n:"condenser",cat:"Descriptor",lib:"phIoT",doc:"Condenser related"},
+  {n:"domestic",cat:"Descriptor",lib:"phIoT",doc:"Domestic/potable use"},
+  {n:"makeup",cat:"Descriptor",lib:"phIoT",doc:"Replacement/addition"},
+  {n:"blowdown",cat:"Descriptor",lib:"phIoT",doc:"Mineral/contaminant removal"},
+  {n:"primary",cat:"Descriptor",lib:"phIoT",doc:"Primary loop or circuit"},
+  {n:"secondary",cat:"Descriptor",lib:"phIoT",doc:"Secondary loop or circuit"},
+  {n:"tertiary",cat:"Descriptor",lib:"phIoT",doc:"Tertiary loop or circuit"},
+  {n:"bypass",cat:"Descriptor",lib:"phIoT",doc:"Bypass circuit or path"},
+  {n:"header",cat:"Descriptor",lib:"phIoT",doc:"Header pipe/manifold"},
+  {n:"leaving",cat:"Descriptor",lib:"phIoT",doc:"Leaving/outlet side"},
+  {n:"entering",cat:"Descriptor",lib:"phIoT",doc:"Entering/inlet side"},
+  {n:"discharge",cat:"Descriptor",lib:"phIoT",doc:"Discharge side"},
+  {n:"inlet",cat:"Descriptor",lib:"phIoT",doc:"Inlet/intake side"},
+  {n:"exhaust",cat:"Descriptor",lib:"phIoT",doc:"Exhaust/expel side"},
+  {n:"return",cat:"Descriptor",lib:"phIoT",doc:"Return side or path"},
+  {n:"mixed",cat:"Descriptor",lib:"phIoT",doc:"Mixed air or fluid"},
+  {n:"outside",cat:"Descriptor",lib:"phIoT",doc:"Outside/outdoor air"},
+  {n:"ventilation",cat:"Descriptor",lib:"phIoT",doc:"Ventilation related"},
+  {n:"economizer",cat:"Descriptor",lib:"phIoT",doc:"Economizer/free cooling"},
+  {n:"flue",cat:"Descriptor",lib:"phIoT",doc:"Flue gas or exhaust"},
+  {n:"lead",cat:"Descriptor",lib:"phIoT",doc:"Lead/primary unit"},
+  {n:"lag",cat:"Descriptor",lib:"phIoT",doc:"Lag/backup unit"},
+  {n:"standby",cat:"Descriptor",lib:"phIoT",doc:"Standby/reserve unit"},
+  {n:"backup",cat:"Descriptor",lib:"phIoT",doc:"Backup unit or system"},
+  {n:"array",cat:"Descriptor",lib:"phIoT",doc:"Array/parallel configuration"},
+  {n:"redundant",cat:"Descriptor",lib:"phIoT",doc:"Redundant configuration"},
+  {n:"variable",cat:"Descriptor",lib:"phIoT",doc:"Variable speed or volume"},
+  {n:"constant",cat:"Descriptor",lib:"phIoT",doc:"Constant speed or volume"},
+  {n:"single",cat:"Descriptor",lib:"phIoT",doc:"Single unit configuration"},
+  {n:"dual",cat:"Descriptor",lib:"phIoT",doc:"Dual/duplex configuration"},
+  {n:"direction",cat:"Descriptor",lib:"phIoT",doc:"Directional indicator"},
+  {n:"uiElement",cat:"Descriptor",lib:"phIoT",doc:"User interface element"},
+  {n:"arrow",cat:"Descriptor",lib:"phIoT",doc:"Arrow/direction indicator"},
+
+  // ── Process: Heating ──
+  {n:"heating",cat:"Process",lib:"phIoT",doc:"Heating process or mode"},
+  {n:"elecHeating",cat:"Process",lib:"phIoT",doc:"Electrical resistance heating"},
+  {n:"naturalGasHeating",cat:"Process",lib:"phIoT",doc:"Natural gas combustion heating"},
+  {n:"hotWaterHeating",cat:"Process",lib:"phIoT",doc:"Hot water based heating"},
+  {n:"steamHeating",cat:"Process",lib:"phIoT",doc:"Steam based heating"},
+  {n:"dxHeating",cat:"Process",lib:"phIoT",doc:"Direct expansion (heat pump) heating"},
+  {n:"biomassHeating",cat:"Process",lib:"phIoT",doc:"Biomass combustion heating"},
+  {n:"coalHeating",cat:"Process",lib:"phIoT",doc:"Coal combustion heating"},
+  {n:"propaneHeating",cat:"Process",lib:"phIoT",doc:"Propane combustion heating"},
+  {n:"fuelOilHeating",cat:"Process",lib:"phIoT",doc:"Fuel oil combustion heating"},
+
+  // ── Process: Cooling ──
+  {n:"cooling",cat:"Process",lib:"phIoT",doc:"Cooling process or mode"},
+  {n:"chilledWaterCooling",cat:"Process",lib:"phIoT",doc:"Chilled water based cooling"},
+  {n:"dxCooling",cat:"Process",lib:"phIoT",doc:"Direct expansion refrigerant cooling"},
+  {n:"airCooling",cat:"Process",lib:"phIoT",doc:"Air based heat dissipation"},
+  {n:"condenserCooling",cat:"Process",lib:"phIoT",doc:"Condenser water cooling"},
+  {n:"waterCooling",cat:"Process",lib:"phIoT",doc:"Non-chilled water cooling"},
+
+  // ── Point Function ──
+  {n:"sensor",cat:"Point Function",lib:"phIoT",doc:"Input/analog input/binary input"},
+  {n:"cmd",cat:"Point Function",lib:"phIoT",doc:"Command/actuator output"},
+  {n:"sp",cat:"Point Function",lib:"phIoT",doc:"Setpoint/soft point/internal variable"},
+  {n:"cur",cat:"Point Function",lib:"phIoT",doc:"Current real-time value"},
+  {n:"his",cat:"Point Function",lib:"phIoT",doc:"Historical/trend log data"},
+  {n:"writable",cat:"Point Function",lib:"phIoT",doc:"Writable output point"},
+
+  // ── Quantity ──
+  {n:"temp",cat:"Quantity",lib:"phScience",doc:"Temperature"},
+  {n:"pressure",cat:"Quantity",lib:"phScience",doc:"Pressure (force per area)"},
+  {n:"flow",cat:"Quantity",lib:"phScience",doc:"Volumetric flow rate"},
+  {n:"humidity",cat:"Quantity",lib:"phScience",doc:"Humidity/moisture content"},
+  {n:"speed",cat:"Quantity",lib:"phScience",doc:"Velocity/speed"},
+  {n:"freq",cat:"Quantity",lib:"phScience",doc:"Frequency"},
+  {n:"level",cat:"Quantity",lib:"phScience",doc:"Fill level (0-100%)"},
+  {n:"volume",cat:"Quantity",lib:"phScience",doc:"3D space volume"},
+  {n:"power",cat:"Quantity",lib:"phScience",doc:"Energy per unit time"},
+  {n:"energy",cat:"Quantity",lib:"phScience",doc:"Ability to do work"},
+  {n:"concentration",cat:"Quantity",lib:"phScience",doc:"Substance abundance per volume"},
+  {n:"illuminance",cat:"Quantity",lib:"phScience",doc:"Luminous flux per area (lux)"},
+  {n:"luminance",cat:"Quantity",lib:"phScience",doc:"Light energy emission"},
+  {n:"luminousFlux",cat:"Quantity",lib:"phScience",doc:"Total visible light (lumens)"},
+  {n:"irradiance",cat:"Quantity",lib:"phScience",doc:"Radiation per surface area"},
+  {n:"co2",cat:"Quantity",lib:"phIoT",doc:"Carbon dioxide concentration"},
+  {n:"pm25",cat:"Quantity",lib:"phIoT",doc:"Particulate matter 2.5 micron"},
+  {n:"pm10",cat:"Quantity",lib:"phIoT",doc:"Particulate matter 10 micron"},
+  {n:"tvoc",cat:"Quantity",lib:"phIoT",doc:"Total volatile organic compounds"},
+  {n:"dewPoint",cat:"Quantity",lib:"phIoT",doc:"Dew point temperature"},
+  {n:"wetBulb",cat:"Quantity",lib:"phIoT",doc:"Wet bulb temperature"},
+  {n:"enthalpy",cat:"Quantity",lib:"phIoT",doc:"Total heat content"},
+  {n:"load",cat:"Quantity",lib:"phIoT",doc:"Load percentage (0-100%)"},
+  {n:"efficiency",cat:"Quantity",lib:"phIoT",doc:"COP or kW/ton measurement"},
+  {n:"coolingCapacity",cat:"Quantity",lib:"phIoT",doc:"Cooling capacity (tons/kW/BTU)"},
+
+  // ── Quantity: Electrical ──
+  {n:"volt",cat:"Quantity",lib:"phIoT",doc:"Voltage/electrical potential"},
+  {n:"current",cat:"Quantity",lib:"phIoT",doc:"Electrical current (amps)"},
+  {n:"pf",cat:"Quantity",lib:"phIoT",doc:"Power factor (-1 to 1)"},
+  {n:"activePower",cat:"Quantity",lib:"phIoT",doc:"Real/active power (kW)"},
+  {n:"reactivePower",cat:"Quantity",lib:"phIoT",doc:"Reactive power (kVAR)"},
+  {n:"apparentPower",cat:"Quantity",lib:"phIoT",doc:"Apparent power (kVA)"},
+  {n:"activeEnergy",cat:"Quantity",lib:"phIoT",doc:"Active energy (kWh)"},
+  {n:"reactiveEnergy",cat:"Quantity",lib:"phIoT",doc:"Reactive energy"},
+  {n:"demand",cat:"Quantity",lib:"phIoT",doc:"Averaged power demand"},
+  {n:"stateOfCharge",cat:"Quantity",lib:"phIoT",doc:"Battery charge level (0-100%)"},
+
+  // ── Quantity: Weather ──
+  {n:"weather",cat:"Quantity",lib:"phIoT",doc:"Weather observation data"},
+  {n:"cloudage",cat:"Quantity",lib:"phIoT",doc:"Cloud coverage (%)"},
+  {n:"precipitation",cat:"Quantity",lib:"phIoT",doc:"Rain/snow precipitation"},
+  {n:"solarIrradiance",cat:"Quantity",lib:"phIoT",doc:"Solar radiation (W/m²)"},
+  {n:"windSpeed",cat:"Quantity",lib:"phIoT",doc:"Wind velocity"},
+  {n:"windDirection",cat:"Quantity",lib:"phIoT",doc:"Wind compass direction"},
+  {n:"visibility",cat:"Quantity",lib:"phIoT",doc:"Atmospheric visibility distance"},
+  {n:"daytime",cat:"Quantity",lib:"phIoT",doc:"Daytime/nighttime status"},
+
+  // ── System ──
+  {n:"system",cat:"System",lib:"phIoT",doc:"System entity"},
+  {n:"airSystem",cat:"System",lib:"phIoT",doc:"Air distribution system"},
+  {n:"waterSystem",cat:"System",lib:"phIoT",doc:"Water distribution system"},
+  {n:"chilledWaterSystem",cat:"System",lib:"phIoT",doc:"Chilled water system"},
+  {n:"hotWaterSystem",cat:"System",lib:"phIoT",doc:"Hot water system"},
+  {n:"condenserWaterSystem",cat:"System",lib:"phIoT",doc:"Condenser water system"},
+  {n:"steamSystem",cat:"System",lib:"phIoT",doc:"Steam distribution system"},
+  {n:"elecSystem",cat:"System",lib:"phIoT",doc:"Electrical distribution system"},
+  {n:"lightingSystem",cat:"System",lib:"phIoT",doc:"Lighting system"},
+  {n:"refrigSystem",cat:"System",lib:"phIoT",doc:"Refrigeration system"},
+  {n:"domesticWaterSystem",cat:"System",lib:"phIoT",doc:"Domestic water system"},
+
+  // ── Operational ──
+  {n:"run",cat:"Operational",lib:"phIoT",doc:"Run/start/stop status"},
+  {n:"enable",cat:"Operational",lib:"phIoT",doc:"Enable/disable control"},
+  {n:"alarm",cat:"Operational",lib:"phIoT",doc:"Alarm/fault condition"},
+  {n:"fault",cat:"Operational",lib:"phIoT",doc:"Equipment fault"},
+  {n:"status",cat:"Operational",lib:"phIoT",doc:"General operational status"},
+  {n:"occupied",cat:"Operational",lib:"phIoT",doc:"Occupancy status"},
+  {n:"occ",cat:"Operational",lib:"phIoT",doc:"Occupied mode"},
+  {n:"unocc",cat:"Operational",lib:"phIoT",doc:"Unoccupied mode"},
+  {n:"mode",cat:"Operational",lib:"phIoT",doc:"Operating mode"},
+  {n:"stage",cat:"Operational",lib:"phIoT",doc:"Staging/step control"},
+  {n:"position",cat:"Operational",lib:"phIoT",doc:"Position (0-100%)"},
+  {n:"override",cat:"Operational",lib:"phIoT",doc:"Manual override active"},
+
+  // ── Conduit ──
+  {n:"pipe",cat:"Conduit",lib:"phIoT",doc:"Fluid conveyance pipe"},
+  {n:"duct",cat:"Conduit",lib:"phIoT",doc:"Air conveyance duct"},
+  {n:"wire",cat:"Conduit",lib:"phIoT",doc:"Electrical/data cable"},
+  {n:"conduit",cat:"Conduit",lib:"phIoT",doc:"Duct, pipe, or cable"},
+
+  // ── Misc ──
+  {n:"ac",cat:"Misc",lib:"phIoT",doc:"Alternating current"},
+  {n:"dc",cat:"Misc",lib:"phIoT",doc:"Direct current"},
+  {n:"phase",cat:"Misc",lib:"phIoT",doc:"Electrical phase (A, B, C)"},
+  {n:"neutral",cat:"Misc",lib:"phIoT",doc:"Neutral conductor"},
+  {n:"solar",cat:"Misc",lib:"phIoT",doc:"Solar energy related"},
+  {n:"wind",cat:"Misc",lib:"phIoT",doc:"Wind energy related"},
+  {n:"reheat",cat:"Misc",lib:"phIoT",doc:"Reheat process"},
+  {n:"preheat",cat:"Misc",lib:"phIoT",doc:"Preheat process"},
+  {n:"dehumidify",cat:"Misc",lib:"phIoT",doc:"Dehumidification process"},
+  {n:"circ",cat:"Misc",lib:"phIoT",doc:"Circulation loop"},
+  {n:"delta",cat:"Misc",lib:"phIoT",doc:"Differential/delta measurement"},
+  {n:"zone",cat:"Misc",lib:"phIoT",doc:"Zone within a space"},
+  {n:"total",cat:"Misc",lib:"phIoT",doc:"Total/aggregate value"},
+  {n:"avg",cat:"Misc",lib:"phIoT",doc:"Average value"},
+  {n:"effective",cat:"Misc",lib:"phIoT",doc:"Effective/computed value"},
+  {n:"net",cat:"Misc",lib:"phIoT",doc:"Net (import minus export)"},
+  {n:"import",cat:"Misc",lib:"phIoT",doc:"Import/incoming"},
+  {n:"export",cat:"Misc",lib:"phIoT",doc:"Export/outgoing"},
+];
+
+const TAG_KEYS_WITH_VALUES = {
+  heatingProcess: ["elecHeating","naturalGasHeating","hotWaterHeating","steamHeating","dxHeating","biomassHeating","coalHeating","propaneHeating","fuelOilHeating"],
+  coolingProcess: ["chilledWaterCooling","dxCooling","airCooling","condenserCooling","waterCooling"],
+  fanType: ["propeller","axial","centrifugal","array"],
+  pumpType: ["inline","endSuction","splitCase","submersible","verticalTurbine"],
+  pumpConfig: ["simplex","duplex","triplex"],
+  valveType: ["ball","butterfly","gate","globe","check","solenoid","diverting","mixing","pressure"],
+  damperType: ["backDraft","barometric","blade","bypass","controlZone","isolation","parallel","opposed"],
+  filterType: ["bag","cartridge","electrostatic","hepa","media","panel","roll","uv"],
+  coilType: ["dx","hotWater","chilledWater","steam","electric","glycol"],
+  tankSubstance: ["water","hotWater","chilledWater","condensate","fuel","diesel","propane","naturalGas"],
+  chillerMechanism: ["absorption","centrifugal","reciprocal","rotaryScrew"],
+  condenserLoop: ["openLoop","closedLoop"],
+  airVolumeAdjustability: ["constantAirVolume","variableAirVolume"],
+  ahuZoneDelivery: ["directZone","vavZone","chilledBeamZone","multiZone"],
+  ductConfig: ["singleDuct","dualDuct","tripleDuct"],
+  ductDeck: ["coldDeck","hotDeck","neutralDeck"],
+  ductSection: ["discharge","economizer","inlet","flue","exhaust","mixed","outside","return","ventilation"],
+  pipeSection: ["bypass","circ","entering","header","leaving"],
+  plantLoop: ["primaryLoop","secondaryLoop","tertiaryLoop"],
+  vavModulation: ["pressureDependent","pressureIndependent"],
+  vavAirCircuit: ["series","parallel"],
+  meterScope: ["siteMeter","submeter"],
+  phaseCount: ["singlePhase","splitPhase","twoPhase","threePhase"],
+  fluidType: ["chilledWaterSupply","chilledWaterReturn","hotWaterSupply","hotWaterReturn","condenserWaterSupply","condenserWaterReturn","steamSupply","steamReturn","domesticColdWater","domesticHotWater","refrigLiquid","refrigSuction","refrigDischarge"],
+};
+
+const XETO_TYPES = [
+  "ph.equips::AcElecMeter","ph.equips::Ahu","ph.equips::Boiler","ph.equips::Battery",
+  "ph.equips::Chiller","ph.equips::CoolingTower","ph.equips::Crac","ph.equips::DamperActuator",
+  "ph.equips::Doas","ph.equips::DxHeatingCoil","ph.equips::DxCoolingCoil",
+  "ph.equips::ChilledWaterCoolingCoil","ph.equips::HotWaterHeatingCoil","ph.equips::SteamHeatingCoil",
+  "ph.equips::ElecHeatingCoil","ph.equips::Fan","ph.equips::FanMotor","ph.equips::Fcu",
+  "ph.equips::Filter","ph.equips::FlowMeter","ph.equips::Furnace","ph.equips::HeatExchanger",
+  "ph.equips::HotWaterBoiler","ph.equips::SteamBoiler","ph.equips::Humidifier",
+  "ph.equips::Luminaire","ph.equips::Mau","ph.equips::Motor","ph.equips::Pump","ph.equips::PumpMotor",
+  "ph.equips::Radiator","ph.equips::Rtu","ph.equips::Tank","ph.equips::UnitVent",
+  "ph.equips::Ups","ph.equips::Valve","ph.equips::ValveActuator","ph.equips::Vav",
+  "ph.equips::ChilledBeam","ph.equips::ChilledWaterPlant","ph.equips::HotWaterPlant",
+  "ph.equips::SteamPlant","ph.equips::CondenserLoop","ph.equips::Pipe","ph.equips::Duct",
+  "ph.equips::Wire","ph.equips::WeatherStation",
+];
+
+const DROPDOWN_OPTIONS = {
+  "animation-type": ["none","off,on","off,on,repeating","off,on,stage","off,on,auto","off,on,open,closed"],
+  orientation: ["left","right","up","down","horizontal","vertical"],
+  unit: ["%","%RH","°F","°C","K","kW","kWh","MW","MWh","W","Wh","BTU","BTU/h","kBTU","kBTU/h","MBTU","MBTU/h","tonref","ton","HP","therm","J","kJ","MJ","GJ","cal","kcal","PSI","kPa","Pa","hPa","bar","mbar","inH₂O","cmH₂O","inHg","mmHg","atm","GPM","L/s","L/min","L/h","m³/s","m³/h","m³/min","CFM","ft³/min","ft³/h","gal/h","A","mA","V","kV","mV","Hz","kHz","Ω","kΩ","MΩ","S","kVA","kVAR","PF","°","rad","RPM","mph","km/h","m/s","ft/s","knot","in","mm","cm","ft","m","yd","mi","km","gal","L","mL","ft³","m³","fl_oz","pt","qt","bbl","ft²","m²","in²","cm²","acre","lb","kg","g","mg","oz","ton_us","tonne","lb/h","kg/h","kg/s","ton/h","PPM","PPB","μg/m³","mg/m³","mg/L","μg/L","gr/lb","lux","ft·cd","lm","cd","cd/m²","dB","dBA","pH","NTU","FNU","CFU","sec","min","hr","day","wk","mo","yr","$/kWh","$/therm","$/gal","$/ft³"],
+};
+
+// Build a quick lookup for tag categories
+const TAG_CAT_MAP = {};
+HAYSTACK_TAGS.forEach(t => TAG_CAT_MAP[t.n] = t.cat);
+
+// Category ordering for autocomplete groups
+const CAT_ORDER = ["Entity","Equipment","Motor/Actuator","Medium","Descriptor","Process","Point Function","Quantity","System","Operational","Conduit","Misc"];
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+
+const state = {
+  dirHandle: null,
+  files: new Map(), // path -> {handle, relPath, name, category, subcategory, attrs:{}, originalAttrs:{}, blobUrl:null}
+  selectedPaths: new Set(),
+  activeCategory: null,
+  sortBy: 'name',
+  sidebarFilter: '',
+  loading: false,
+};
+
+function getDirtyFiles() {
+  const dirty = [];
+  for (const [path, f] of state.files) {
+    if (JSON.stringify(f.attrs) !== JSON.stringify(f.originalAttrs)) dirty.push(path);
+  }
+  return dirty;
+}
+
+function updateDirtyCount() {
+  const dirty = getDirtyFiles();
+  const btn = document.getElementById('btnSaveAll');
+  const label = document.getElementById('saveLabel');
+  if (dirty.length > 0) {
+    btn.disabled = false;
+    label.textContent = `Save All (${dirty.length})`;
+  } else {
+    btn.disabled = true;
+    label.textContent = 'Save All';
+  }
+  updateHeaderStats();
+}
+
+function isDirty(path) {
+  const f = state.files.get(path);
+  return f && JSON.stringify(f.attrs) !== JSON.stringify(f.originalAttrs);
+}
+
+// Unsaved changes warning
+window.addEventListener('beforeunload', e => {
+  if (getDirtyFiles().length > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// Ctrl+S save
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (state.selectedPaths.size > 0) {
+      saveSelected();
+    } else if (getDirtyFiles().length > 0) {
+      saveAll();
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// FILE SYSTEM MODULE
+// ═══════════════════════════════════════════════════════════════════
+
+async function openDirectory() {
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    state.dirHandle = handle;
+    state.files.clear();
+    state.selectedPaths.clear();
+    state.activeCategory = null;
+
+    // Show loading
+    const grid = document.getElementById('mainGrid');
+    grid.innerHTML = `
+      <div class="empty-state">
+        <h3>Scanning Directory...</h3>
+        <p>Reading SVG files from <b>${handle.name}</b></p>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="loading-text" id="loadingText">Scanning...</div>
+      </div>`;
+    document.getElementById('mainToolbar').style.display = 'none';
+
+    await scanDirectory(handle, '');
+
+    renderSidebar();
+    renderGrid();
+    updateHeaderStats();
+    closeDetail();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error(err);
+      showToast('Failed to open directory: ' + err.message, 'error');
+    }
+  }
+}
+
+async function scanDirectory(dirHandle, prefix) {
+  const entries = [];
+  for await (const entry of dirHandle.values()) {
+    entries.push(entry);
+  }
+  const total = entries.length;
+  let done = 0;
+
+  for (const entry of entries) {
+    const relPath = prefix ? prefix + '/' + entry.name : entry.name;
+    if (entry.kind === 'directory') {
+      await scanDirectory(entry, relPath);
+    } else if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.svg')) {
+      try {
+        const file = await entry.getFile();
+        // Read first 3KB for metadata parsing
+        const slice = file.slice(0, 3072);
+        const text = await slice.text();
+        const attrs = parseSVGAttrs(text);
+
+        const parts = relPath.split('/');
+        const category = parts.length > 1 ? parts[0] : 'Root';
+        const subcategory = parts.length > 2 ? parts.slice(0, -1).join('/') : category;
+
+        state.files.set(relPath, {
+          handle: entry,
+          relPath,
+          name: entry.name.replace(/\.svg$/i, ''),
+          category,
+          subcategory,
+          attrs: { ...attrs },
+          originalAttrs: { ...attrs },
+          blobUrl: URL.createObjectURL(file),
+        });
+      } catch (e) {
+        console.warn('Skipped:', relPath, e);
+      }
+    }
+    done++;
+    const pf = document.getElementById('progressFill');
+    const lt = document.getElementById('loadingText');
+    if (pf) pf.style.width = Math.round((done / total) * 100) + '%';
+    if (lt) lt.textContent = `${state.files.size} SVGs found... (${relPath})`;
+  }
+}
+
+function parseSVGAttrs(text) {
+  const attrs = {};
+  const dataRegex = /data-([\w-]+)="([^"]*)"/gi;
+  let m;
+  while ((m = dataRegex.exec(text)) !== null) {
+    // Decode basic HTML entities
+    attrs[m[1]] = m[2].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  }
+  return attrs;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CATEGORY TREE
+// ═══════════════════════════════════════════════════════════════════
+
+function getCategories() {
+  const cats = {};
+  for (const [path, f] of state.files) {
+    const cat = (f.attrs.category || '').trim() || 'Uncategorized';
+    if (!cats[cat]) cats[cat] = { name: cat, count: 0 };
+    cats[cat].count++;
+  }
+  return Object.values(cats).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderSidebar() {
+  const categories = getCategories();
+  const el = document.getElementById('sidebarTree');
+  const filter = state.sidebarFilter.toLowerCase();
+
+  let html = `<div class="tree-header${!state.activeCategory ? ' active' : ''}" data-cat="">
+    <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <span class="tree-label">All Symbols</span>
+    <span class="tree-count">${state.files.size}</span>
+  </div>`;
+
+  for (const cat of categories) {
+    const isActive = state.activeCategory === cat.name;
+
+    if (filter) {
+      const catMatch = cat.name.toLowerCase().includes(filter);
+      if (!catMatch) {
+        let fileMatch = false;
+        for (const [p, f] of state.files) {
+          const fCat = (f.attrs.category || '').trim() || 'Uncategorized';
+          if (fCat === cat.name && f.name.toLowerCase().includes(filter)) { fileMatch = true; break; }
+        }
+        if (!fileMatch) continue;
+      }
+    }
+
+    html += `<div class="tree-header${isActive ? ' active' : ''}" data-cat="${escAttr(cat.name)}">
+      <span style="width:16px"></span>
+      <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span class="tree-label">${escHtml(cat.name)}</span>
+      <span class="tree-count">${cat.count}</span>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+
+  // Event delegation for tree clicks
+  el.onclick = e => {
+    const header = e.target.closest('.tree-header[data-cat]');
+    if (header) {
+      selectCategory(header.dataset.cat || null);
+    }
+  };
+}
+
+function selectCategory(cat) {
+  state.activeCategory = cat || null;
+  renderSidebar();
+  renderGrid();
+}
+
+function filterSidebar() {
+  state.sidebarFilter = document.getElementById('sidebarSearch').value;
+  renderSidebar();
+  renderGrid();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GRID / LIST RENDERER
+// ═══════════════════════════════════════════════════════════════════
+
+function getFilteredFiles() {
+  let files = [];
+  const filter = state.sidebarFilter.toLowerCase();
+
+  for (const [path, f] of state.files) {
+    // Category filter (uses data-category metadata)
+    if (state.activeCategory) {
+      const fCat = (f.attrs.category || '').trim() || 'Uncategorized';
+      if (fCat !== state.activeCategory) continue;
+    }
+
+    // Search filter
+    if (filter) {
+      const searchable = (f.name + ' ' + (f.attrs.markers || '') + ' ' + (f.attrs.category || '') + ' ' + (f.attrs.description || '') + ' ' + (f.attrs.keywords || '') + ' ' + (f.attrs['xeto-type'] || '')).toLowerCase();
+      if (!searchable.includes(filter)) continue;
+    }
+
+    files.push([path, f]);
+  }
+
+  // Sort
+  if (state.sortBy === 'name') {
+    files.sort((a, b) => a[1].name.localeCompare(b[1].name));
+  } else if (state.sortBy === 'name-desc') {
+    files.sort((a, b) => b[1].name.localeCompare(a[1].name));
+  } else if (state.sortBy === 'dirty') {
+    files.sort((a, b) => {
+      const ad = isDirty(a[0]) ? 0 : 1;
+      const bd = isDirty(b[0]) ? 0 : 1;
+      return ad - bd || a[1].name.localeCompare(b[1].name);
+    });
+  }
+
+  return files;
+}
+
+function renderGrid() {
+  const toolbar = document.getElementById('mainToolbar');
+  const grid = document.getElementById('mainGrid');
+
+  if (state.files.size === 0) {
+    toolbar.style.display = 'none';
+    return;
+  }
+
+  toolbar.style.display = 'flex';
+  const files = getFilteredFiles();
+  const catName = state.activeCategory || 'All Symbols';
+  document.getElementById('mainTitle').innerHTML = `${catName.split('/').pop()} <span>(${files.length} symbols)</span>`;
+
+  if (files.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><h3>No Symbols Found</h3><p>Try adjusting your search or selecting a different category.</p></div>`;
+    return;
+  }
+
+  let html = '<div class="grid-cards">';
+  let idx = 0;
+  for (const [path, f] of files) {
+    const dirty = isDirty(path);
+    const selected = state.selectedPaths.has(path);
+    const delay = Math.min(idx, 30);
+    html += `<div class="svg-card${dirty ? ' dirty' : ''}${selected ? ' selected' : ''}" data-path="${escAttr(path)}" title="${escHtml(f.name)}" style="--i:${delay}">
+      <div class="svg-preview"><img src="${f.blobUrl}" alt="${escHtml(f.name)}" loading="lazy" /></div>
+      <div class="svg-card-info">
+        <div class="svg-card-name">${escHtml(f.name)}</div>
+        <div class="svg-card-meta">${escHtml((f.attrs.markers || '').split(' ').slice(0, 4).join(' '))}</div>
+      </div>
+    </div>`;
+    idx++;
+  }
+  html += '</div>';
+  grid.innerHTML = html;
+
+  // Event delegation for clicks
+  grid.onclick = e => {
+    const card = e.target.closest('[data-path]');
+    if (card) selectFile(card.dataset.path, e);
+  };
+}
+
+// Lightweight update: toggle dirty class on a single card without re-rendering
+function updateCardDirty(path) {
+  if (!path) return;
+  const grid = document.getElementById('mainGrid');
+  const card = grid.querySelector(`[data-path="${CSS.escape(path)}"]`);
+  if (card) {
+    card.classList.toggle('dirty', isDirty(path));
+  }
+}
+
+function setSort(val) {
+  state.sortBy = val;
+  renderGrid();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════
+
+function selectFile(path, e) {
+  const grid = document.getElementById('mainGrid');
+  const multi = e && (e.ctrlKey || e.metaKey);
+
+  if (multi) {
+    // Toggle this path in/out of selection
+    if (state.selectedPaths.has(path)) {
+      state.selectedPaths.delete(path);
+      const card = grid.querySelector(`[data-path="${CSS.escape(path)}"]`);
+      if (card) card.classList.remove('selected');
+    } else {
+      state.selectedPaths.add(path);
+      const card = grid.querySelector(`[data-path="${CSS.escape(path)}"]`);
+      if (card) card.classList.add('selected');
+    }
+    if (state.selectedPaths.size === 0) {
+      closeDetail();
+      return;
+    }
+  } else {
+    // Single select — clear previous
+    grid.querySelectorAll('.svg-card.selected').forEach(c => c.classList.remove('selected'));
+    state.selectedPaths.clear();
+    state.selectedPaths.add(path);
+    const card = grid.querySelector(`[data-path="${CSS.escape(path)}"]`);
+    if (card) card.classList.add('selected');
+  }
+
+  const app = document.getElementById('app');
+  app.classList.add('detail-open');
+  renderDetail();
+}
+
+function closeDetail() {
+  const grid = document.getElementById('mainGrid');
+  grid.querySelectorAll('.svg-card.selected').forEach(c => c.classList.remove('selected'));
+  state.selectedPaths.clear();
+  const app = document.getElementById('app');
+  app.classList.remove('detail-open');
+  const existing = document.querySelector('.detail');
+  if (existing) existing.remove();
+}
+
+// Helper: get the shared/common value across selected files for a key
+// Returns { value, mixed } — if all same, value is that value; if different, mixed=true
+function getSharedValue(key) {
+  let first = true, val = '', mixed = false;
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (!f) continue;
+    const v = f.attrs[key] || '';
+    if (first) { val = v; first = false; }
+    else if (v !== val) { mixed = true; break; }
+  }
+  return { value: mixed ? '' : val, mixed };
+}
+
+// Helper: get markers common to ALL selected files
+function getSharedMarkers() {
+  let common = null;
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (!f) continue;
+    const set = new Set((f.attrs.markers || '').split(/\s+/).filter(Boolean));
+    if (common === null) common = set;
+    else common = new Set([...common].filter(m => set.has(m)));
+  }
+  return common || new Set();
+}
+
+function isMultiSelect() { return state.selectedPaths.size > 1; }
+
+function renderDetail() {
+  if (state.selectedPaths.size === 0) return;
+
+  let panel = document.querySelector('.detail');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'detail';
+    document.getElementById('app').appendChild(panel);
+  }
+
+  const multi = isMultiSelect();
+  const paths = Array.from(state.selectedPaths);
+  const firstFile = state.files.get(paths[0]);
+  if (!firstFile) return;
+
+  const anyDirty = paths.some(p => isDirty(p));
+
+  if (multi) {
+    // Multi-select mode
+    const sv = key => getSharedValue(key);
+    const kindOpts = ["Bool","Number","Str","Marker","Ref","Date","Time","DateTime","Uri","Coord","XStr"];
+
+    panel.innerHTML = `
+      <div class="detail-header">
+        <h2>${paths.length} symbols selected ${anyDirty ? '<span class="dirty-badge">Modified</span>' : ''}</h2>
+        <button class="detail-close" onclick="closeDetail()">&times;</button>
+      </div>
+      <div class="detail-body">
+        ${multiField('markers', 'Markers', 'data-markers')}
+        ${multiTextField('kind', 'Kind', sv('kind'), 'data-kind', kindOpts)}
+        ${multiTextField('unit', 'Unit', sv('unit'), 'data-unit', null)}
+        ${multiTextInput('category', 'Category', sv('category'), 'data-category')}
+        ${multiTextInput('description', 'Description', sv('description'), 'data-description')}
+        ${multiTextInput('xeto-type', 'Xeto Type', sv('xeto-type'), 'data-xeto-type')}
+        ${multiTextField('animation-type', 'Animation Type', sv('animation-type'), 'data-animation-type', DROPDOWN_OPTIONS['animation-type'])}
+        ${multiTextField('orientation', 'Orientation', sv('orientation'), 'data-orientation', DROPDOWN_OPTIONS.orientation)}
+        ${multiTextInput('keywords', 'Keywords', sv('keywords'), 'data-keywords')}
+        ${multiTextInput('haystack-version', 'Haystack Version', sv('haystack-version'), 'data-haystack-version')}
+      </div>
+      <div class="detail-actions">
+        <button class="btn" onclick="revertFile()" ${!anyDirty ? 'disabled' : ''}>Revert All</button>
+        <button class="btn btn-save" onclick="saveSelected()" ${!anyDirty ? 'disabled' : ''}>
+          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save All (${paths.length})
+        </button>
+      </div>`;
+
+    initMarkerAutocomplete();
+  } else {
+    // Single select mode
+    const f = firstFile;
+    const a = f.attrs;
+    const dirty = isDirty(paths[0]);
+
+    panel.innerHTML = `
+      <div class="detail-header">
+        <h2>${escHtml(f.name)} ${dirty ? '<span class="dirty-badge">Modified</span>' : ''}</h2>
+        <button class="detail-close" onclick="closeDetail()">&times;</button>
+      </div>
+      <div class="detail-preview">
+        <img src="${f.blobUrl}" alt="${escHtml(f.name)}" />
+      </div>
+      <div class="detail-body">
+        ${textField('id', 'ID', a.id || '', 'data-id')}
+        ${textField('dis', 'Display Name', a.dis || '', 'data-dis')}
+        ${markerEditorField(a.markers || '')}
+        ${kvEditorField(a.tags || '')}
+        ${selectField('kind', 'Kind', a.kind || '', ["Bool","Number","Str","Marker","Ref","Date","Time","DateTime","Uri","Coord","XStr"], 'data-kind')}
+        ${comboField('unit', 'Unit', a.unit || '', DROPDOWN_OPTIONS.unit, 'data-unit')}
+        ${textField('category', 'Category', a.category || '', 'data-category')}
+        ${textareaField('description', 'Description', a.description || '', 'data-description')}
+        ${xetoTypeField(a['xeto-type'] || '')}
+        ${chipEditorField('point-slots', 'Point Slots', a['point-slots'] || '', 'data-point-slots', ';', commonPointSlots())}
+        ${selectField('animation-type', 'Animation Type', a['animation-type'] || '', DROPDOWN_OPTIONS['animation-type'], 'data-animation-type')}
+        ${selectField('orientation', 'Orientation', a.orientation || '', DROPDOWN_OPTIONS.orientation, 'data-orientation')}
+        ${textField('keywords', 'Keywords', a.keywords || '', 'data-keywords')}
+        ${textField('haystack-version', 'Haystack Version', a['haystack-version'] || '4.0', 'data-haystack-version')}
+        ${textField('state-group', 'State Group', a['state-group'] || '', 'data-state-group')}
+        ${textField('state-value', 'State Value', a['state-value'] || '', 'data-state-value')}
+      </div>
+      <div class="detail-actions">
+        <button class="btn" onclick="revertFile()" ${!dirty ? 'disabled' : ''}>Revert</button>
+        <button class="btn btn-save" onclick="saveSelected()" ${!dirty ? 'disabled' : ''}>
+          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save
+        </button>
+      </div>`;
+
+    initMarkerAutocomplete();
+    initXetoAutocomplete();
+  }
+}
+
+// Multi-select field renderers
+
+function multiTextInput(key, label, sv, dataAttr) {
+  return `<div class="field">
+    <div class="field-label">${label} <code>${dataAttr}</code></div>
+    <input type="text" value="${escAttr(sv.value)}" placeholder="${sv.mixed ? '— mixed values —' : ''}" onchange="updateAttr('${key}', this.value)" class="${sv.mixed ? 'mixed-field' : ''}" />
+  </div>`;
+}
+
+function multiTextField(key, label, sv, dataAttr, options) {
+  if (options) {
+    let html = `<div class="field">
+      <div class="field-label">${label} <code>${dataAttr}</code></div>
+      <select onchange="updateAttr('${key}', this.value)" class="${sv.mixed ? 'mixed-field' : ''}">
+        <option value="">${sv.mixed ? '— mixed values —' : '— none —'}</option>`;
+    for (const opt of options) {
+      html += `<option value="${escAttr(opt)}"${sv.value === opt ? ' selected' : ''}>${escHtml(opt)}</option>`;
+    }
+    html += `</select></div>`;
+    return html;
+  }
+  return multiTextInput(key, label, sv, dataAttr);
+}
+
+function multiField(key, label, dataAttr) {
+  if (key === 'markers') {
+    // Show shared markers as chips, allow adding to all
+    const shared = getSharedMarkers();
+    let chipsHtml = Array.from(shared).map(m => {
+      const cat = TAG_CAT_MAP[m] || 'custom';
+      const cls = 'chip chip-' + cat.toLowerCase().replace(/[^a-z]/g, '').replace('motoractuator','motor').replace('pointfunction','point');
+      return `<span class="${cls}" data-marker="${escAttr(m)}">${escHtml(m)}<span class="chip-x" onclick="removeMarker('${escAttr(m)}')">&times;</span></span>`;
+    }).join('');
+
+    return `<div class="field">
+      <div class="field-label">${label} <code>${dataAttr}</code> <span style="color:var(--text3);font-size:10px;margin-left:6px">shared across all</span></div>
+      <div class="autocomplete-wrap">
+        <div class="chip-editor" id="markerChipEditor" onclick="document.getElementById('markerInput').focus()">
+          ${chipsHtml}
+          <input class="chip-input" id="markerInput" type="text" placeholder="Add markers to all..." oninput="filterMarkerDropdown()" onfocus="filterMarkerDropdown()" />
+        </div>
+        <div class="autocomplete-dropdown" id="markerDropdown"></div>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+// ── Field renderers ──
+
+function textField(key, label, value, dataAttr) {
+  return `<div class="field">
+    <div class="field-label">${label} <code>${dataAttr}</code></div>
+    <input type="text" value="${escAttr(value)}" onchange="updateAttr('${key}', this.value)" />
+  </div>`;
+}
+
+function textareaField(key, label, value, dataAttr) {
+  return `<div class="field">
+    <div class="field-label">${label} <code>${dataAttr}</code></div>
+    <textarea onchange="updateAttr('${key}', this.value)">${escHtml(value)}</textarea>
+  </div>`;
+}
+
+function selectField(key, label, value, options, dataAttr) {
+  let html = `<div class="field">
+    <div class="field-label">${label} <code>${dataAttr}</code></div>
+    <select onchange="updateAttr('${key}', this.value)">
+      <option value="">— none —</option>`;
+  for (const opt of options) {
+    html += `<option value="${escAttr(opt)}"${value === opt ? ' selected' : ''}>${escHtml(opt)}</option>`;
+  }
+  html += `</select></div>`;
+  return html;
+}
+
+function comboField(key, label, value, options, dataAttr) {
+  let html = `<div class="field">
+    <div class="field-label">${label} <code>${dataAttr}</code></div>
+    <input type="text" list="dl_${key}" value="${escAttr(value)}" onchange="updateAttr('${key}', this.value)" />
+    <datalist id="dl_${key}">`;
+  for (const opt of options) {
+    html += `<option value="${escAttr(opt)}">`;
+  }
+  html += `</datalist></div>`;
+  return html;
+}
+
+// ── Marker Editor ──
+
+function markerEditorField(markersStr) {
+  const markers = markersStr ? markersStr.split(/\s+/).filter(Boolean) : [];
+  let chipsHtml = markers.map(m => {
+    const cat = TAG_CAT_MAP[m] || 'custom';
+    const cls = 'chip chip-' + cat.toLowerCase().replace(/[^a-z]/g, '').replace('motoractuator','motor').replace('pointfunction','point');
+    return `<span class="${cls}" data-marker="${escAttr(m)}">${escHtml(m)}<span class="chip-x" onclick="removeMarker('${escAttr(m)}')">&times;</span></span>`;
+  }).join('');
+
+  return `<div class="field">
+    <div class="field-label">Markers <code>data-markers</code></div>
+    <div class="autocomplete-wrap">
+      <div class="chip-editor" id="markerChipEditor" onclick="document.getElementById('markerInput').focus()">
+        ${chipsHtml}
+        <input class="chip-input" id="markerInput" type="text" placeholder="Type to add markers..." oninput="filterMarkerDropdown()" onfocus="filterMarkerDropdown()" />
+      </div>
+      <div class="autocomplete-dropdown" id="markerDropdown"></div>
+    </div>
+  </div>`;
+}
+
+function initMarkerAutocomplete() {
+  const input = document.getElementById('markerInput');
+  if (!input) return;
+
+  input.addEventListener('keydown', e => {
+    const dropdown = document.getElementById('markerDropdown');
+    const items = dropdown.querySelectorAll('.ac-item:not(.applied)');
+    const highlighted = dropdown.querySelector('.ac-item.highlighted');
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!highlighted && items.length) { items[0].classList.add('highlighted'); items[0].scrollIntoView({ block: 'nearest' }); }
+      else if (highlighted) {
+        highlighted.classList.remove('highlighted');
+        const next = findNextItem(highlighted, items);
+        if (next) { next.classList.add('highlighted'); next.scrollIntoView({ block: 'nearest' }); }
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (highlighted) {
+        highlighted.classList.remove('highlighted');
+        const prev = findPrevItem(highlighted, items);
+        if (prev) { prev.classList.add('highlighted'); prev.scrollIntoView({ block: 'nearest' }); }
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlighted) {
+        highlighted.click();
+      } else if (input.value.trim()) {
+        addMarker(input.value.trim());
+      }
+    } else if (e.key === 'Escape') {
+      closeMarkerDropdown();
+    } else if (e.key === 'Backspace' && !input.value && !isMultiSelect()) {
+      // Remove last marker (single select only)
+      const f = state.files.get(Array.from(state.selectedPaths)[0]);
+      if (f) {
+        const markers = (f.attrs.markers || '').split(/\s+/).filter(Boolean);
+        if (markers.length) {
+          markers.pop();
+          f.attrs.markers = markers.join(' ');
+          renderDetail();
+          updateDirtyCount();
+        }
+      }
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.autocomplete-wrap')) closeMarkerDropdown();
+  }, { once: false });
+}
+
+function findNextItem(current, items) {
+  const arr = Array.from(items);
+  const idx = arr.indexOf(current);
+  return idx < arr.length - 1 ? arr[idx + 1] : null;
+}
+function findPrevItem(current, items) {
+  const arr = Array.from(items);
+  const idx = arr.indexOf(current);
+  return idx > 0 ? arr[idx - 1] : null;
+}
+
+function filterMarkerDropdown() {
+  const input = document.getElementById('markerInput');
+  const dropdown = document.getElementById('markerDropdown');
+  const query = input.value.toLowerCase().trim();
+  if (state.selectedPaths.size === 0) return;
+
+  // In multi-select, show markers common to ALL; in single, show that file's markers
+  const currentMarkers = isMultiSelect() ? getSharedMarkers() : new Set((state.files.get(Array.from(state.selectedPaths)[0]).attrs.markers || '').split(/\s+/).filter(Boolean));
+
+  let filtered = HAYSTACK_TAGS;
+  if (query) {
+    filtered = HAYSTACK_TAGS.filter(t =>
+      t.n.toLowerCase().includes(query) || t.doc.toLowerCase().includes(query)
+    );
+  }
+
+  // Group by category
+  const groups = {};
+  for (const t of filtered) {
+    if (!groups[t.cat]) groups[t.cat] = [];
+    groups[t.cat].push(t);
+  }
+
+  let html = '';
+  for (const cat of CAT_ORDER) {
+    if (!groups[cat] || groups[cat].length === 0) continue;
+    html += `<div class="ac-group-header">${cat}</div>`;
+    for (const t of groups[cat]) {
+      const applied = currentMarkers.has(t.n);
+      html += `<div class="ac-item${applied ? ' applied' : ''}" onclick="addMarker('${escAttr(t.n)}')" data-tag="${escAttr(t.n)}">
+        ${applied ? '<span class="ac-item-check">&#10003;</span>' : ''}
+        <span class="ac-item-name">${highlightMatch(t.n, query)}</span>
+        <span class="ac-item-lib">${t.lib}</span>
+        <span class="ac-item-doc">${highlightMatch(t.doc, query)}</span>
+      </div>`;
+    }
+  }
+
+  if (query && !HAYSTACK_TAGS.some(t => t.n.toLowerCase() === query)) {
+    html += `<div class="ac-custom" onclick="addMarker('${escAttr(query)}')">+ Add custom: <b>${escHtml(query)}</b></div>`;
+  }
+
+  dropdown.innerHTML = html;
+  dropdown.classList.toggle('open', html.length > 0 || query.length > 0);
+}
+
+function highlightMatch(text, query) {
+  if (!query) return escHtml(text);
+  const idx = text.toLowerCase().indexOf(query);
+  if (idx === -1) return escHtml(text);
+  return escHtml(text.slice(0, idx)) + '<b style="color:var(--accent);font-weight:700">' + escHtml(text.slice(idx, idx + query.length)) + '</b>' + escHtml(text.slice(idx + query.length));
+}
+
+function addMarker(marker) {
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (!f) continue;
+    const markers = (f.attrs.markers || '').split(/\s+/).filter(Boolean);
+    if (!markers.includes(marker)) {
+      markers.push(marker);
+      f.attrs.markers = markers.join(' ');
+    }
+    updateCardDirty(p);
+  }
+  renderDetail();
+  updateDirtyCount();
+}
+
+function removeMarker(marker) {
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (!f) continue;
+    const markers = (f.attrs.markers || '').split(/\s+/).filter(Boolean).filter(m => m !== marker);
+    f.attrs.markers = markers.join(' ');
+    updateCardDirty(p);
+  }
+  renderDetail();
+  updateDirtyCount();
+}
+
+function closeMarkerDropdown() {
+  const dd = document.getElementById('markerDropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+// ── Tags Key:Value Editor ──
+
+function kvEditorField(tagsStr) {
+  const pairs = tagsStr ? tagsStr.split(/\s+/).filter(Boolean).map(p => {
+    const [k, ...v] = p.split(':');
+    return { key: k, value: v.join(':') };
+  }) : [];
+
+  let rowsHtml = pairs.map((p, i) => kvRowHtml(p.key, p.value, i)).join('');
+
+  return `<div class="field">
+    <div class="field-label">Tags <code>data-tags</code></div>
+    <div class="kv-editor" id="kvEditor">
+      ${rowsHtml}
+      <button class="kv-add" onclick="addKvRow()">+ Add Tag</button>
+    </div>
+  </div>`;
+}
+
+function kvRowHtml(key, value, idx) {
+  // Check if key has predefined values
+  const choices = TAG_KEYS_WITH_VALUES[key];
+  let valueInput;
+  if (choices) {
+    const opts = choices.map(c => `<option value="${escAttr(c)}"${value === c ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+    valueInput = `<select class="kv-val" onchange="updateKvRow()"><option value="">— select —</option>${opts}</select>`;
+  } else {
+    valueInput = `<input class="kv-val" type="text" value="${escAttr(value)}" placeholder="value" onchange="updateKvRow()" />`;
+  }
+
+  // Key input with datalist
+  const allKeys = Object.keys(TAG_KEYS_WITH_VALUES);
+  return `<div class="kv-row">
+    <input class="kv-key" type="text" list="dl_kvkeys" value="${escAttr(key)}" placeholder="key" onchange="onKvKeyChange(this)" />
+    ${valueInput}
+    <button class="kv-remove" onclick="this.parentElement.remove(); updateKvRow()">&times;</button>
+  </div>`;
+}
+
+function onKvKeyChange(input) {
+  // If key has predefined values, replace the value input with a select
+  const row = input.closest('.kv-row');
+  const key = input.value.trim();
+  const currentValEl = row.querySelector('.kv-val');
+  const currentVal = currentValEl ? currentValEl.value : '';
+  const choices = TAG_KEYS_WITH_VALUES[key];
+
+  if (choices) {
+    const opts = choices.map(c => `<option value="${escAttr(c)}"${currentVal === c ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+    const newEl = document.createElement('select');
+    newEl.className = 'kv-val';
+    newEl.onchange = updateKvRow;
+    newEl.innerHTML = `<option value="">— select —</option>${opts}`;
+    currentValEl.replaceWith(newEl);
+  } else if (currentValEl.tagName === 'SELECT') {
+    const newEl = document.createElement('input');
+    newEl.className = 'kv-val';
+    newEl.type = 'text';
+    newEl.value = currentVal;
+    newEl.placeholder = 'value';
+    newEl.onchange = updateKvRow;
+    currentValEl.replaceWith(newEl);
+  }
+
+  updateKvRow();
+}
+
+function addKvRow() {
+  const editor = document.getElementById('kvEditor');
+  const addBtn = editor.querySelector('.kv-add');
+  const row = document.createElement('div');
+  row.className = 'kv-row';
+  row.innerHTML = `<input class="kv-key" type="text" list="dl_kvkeys" value="" placeholder="key" onchange="onKvKeyChange(this)" />
+    <input class="kv-val" type="text" value="" placeholder="value" onchange="updateKvRow()" />
+    <button class="kv-remove" onclick="this.parentElement.remove(); updateKvRow()">&times;</button>`;
+  editor.insertBefore(row, addBtn);
+}
+
+function updateKvRow() {
+  const editor = document.getElementById('kvEditor');
+  if (!editor) return;
+  const rows = editor.querySelectorAll('.kv-row');
+  const pairs = [];
+  rows.forEach(r => {
+    const k = r.querySelector('.kv-key').value.trim();
+    const v = r.querySelector('.kv-val').value.trim();
+    if (k) pairs.push(k + ':' + v);
+  });
+  updateAttr('tags', pairs.join(' '));
+}
+
+// ── Xeto Type Field ──
+
+function xetoTypeField(value) {
+  return `<div class="field">
+    <div class="field-label">Xeto Type <code>data-xeto-type</code></div>
+    <div class="autocomplete-wrap">
+      <input type="text" id="xetoInput" value="${escAttr(value)}" placeholder="Search xeto types..." oninput="filterXetoDropdown()" onfocus="filterXetoDropdown()" onchange="updateAttr('xeto-type', this.value)" />
+      <div class="autocomplete-dropdown" id="xetoDropdown"></div>
+    </div>
+  </div>`;
+}
+
+function initXetoAutocomplete() {
+  const input = document.getElementById('xetoInput');
+  if (!input) return;
+
+  input.addEventListener('keydown', e => {
+    const dropdown = document.getElementById('xetoDropdown');
+    const items = dropdown.querySelectorAll('.ac-item');
+    const highlighted = dropdown.querySelector('.ac-item.highlighted');
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!highlighted && items.length) { items[0].classList.add('highlighted'); items[0].scrollIntoView({ block: 'nearest' }); }
+      else if (highlighted) {
+        highlighted.classList.remove('highlighted');
+        const arr = Array.from(items);
+        const idx = arr.indexOf(highlighted);
+        if (idx < arr.length - 1) { arr[idx + 1].classList.add('highlighted'); arr[idx + 1].scrollIntoView({ block: 'nearest' }); }
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (highlighted) {
+        highlighted.classList.remove('highlighted');
+        const arr = Array.from(items);
+        const idx = arr.indexOf(highlighted);
+        if (idx > 0) { arr[idx - 1].classList.add('highlighted'); arr[idx - 1].scrollIntoView({ block: 'nearest' }); }
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlighted) highlighted.click();
+    } else if (e.key === 'Escape') {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#xetoInput') && !e.target.closest('#xetoDropdown')) {
+      document.getElementById('xetoDropdown')?.classList.remove('open');
+    }
+  });
+}
+
+function filterXetoDropdown() {
+  const input = document.getElementById('xetoInput');
+  const dropdown = document.getElementById('xetoDropdown');
+  const query = input.value.toLowerCase().trim();
+
+  let filtered = XETO_TYPES;
+  if (query) {
+    filtered = XETO_TYPES.filter(t => t.toLowerCase().includes(query));
+  }
+
+  if (filtered.length === 0) {
+    dropdown.classList.remove('open');
+    return;
+  }
+
+  let html = '';
+  for (const t of filtered) {
+    const shortName = t.split('::')[1] || t;
+    html += `<div class="ac-item" onclick="selectXetoType('${escAttr(t)}')">
+      <span class="ac-item-name">${highlightMatch(shortName, query)}</span>
+      <span class="ac-item-lib">${escHtml(t.split('::')[0])}</span>
+    </div>`;
+  }
+  dropdown.innerHTML = html;
+  dropdown.classList.add('open');
+}
+
+function selectXetoType(type) {
+  document.getElementById('xetoInput').value = type;
+  document.getElementById('xetoDropdown').classList.remove('open');
+  updateAttr('xeto-type', type);
+}
+
+// ── Point Slots Chip Editor ──
+
+function commonPointSlots() {
+  return ['run cmd','run sensor','enable cmd','alarm sensor','vfd speed cmd','vfd speed sensor',
+    'status','valve cmd','valve sensor','stage cmd','stage sensor','position cmd','position sensor',
+    'temp sensor','pressure sensor','flow sensor','humidity sensor','co2 sensor','level sensor',
+    'occ sensor','mode cmd','sp cmd','override cmd','fault sensor','load sensor','battery sensor',
+    'power sensor','energy sensor','current sensor','voltage sensor','pf sensor'];
+}
+
+function chipEditorField(key, label, value, dataAttr, separator, suggestions) {
+  const items = value ? value.split(separator).map(s => s.trim()).filter(Boolean) : [];
+  const chipsHtml = items.map(item =>
+    `<span class="chip chip-misc">${escHtml(item)}<span class="chip-x" onclick="removeChip('${escAttr(key)}', '${escAttr(item)}', '${separator}')">&times;</span></span>`
+  ).join('');
+
+  return `<div class="field">
+    <div class="field-label">${label} <code>${dataAttr}</code></div>
+    <div class="autocomplete-wrap">
+      <div class="chip-editor" onclick="this.querySelector('input').focus()">
+        ${chipsHtml}
+        <input class="chip-input" type="text" placeholder="Type to add..." id="chipInput_${key}"
+          oninput="filterChipDropdown('${key}', '${separator}')"
+          onfocus="filterChipDropdown('${key}', '${separator}')"
+          onkeydown="chipInputKeydown(event, '${key}', '${separator}')" />
+      </div>
+      <div class="autocomplete-dropdown" id="chipDropdown_${key}" data-suggestions='${JSON.stringify(suggestions || [])}'></div>
+    </div>
+  </div>`;
+}
+
+function filterChipDropdown(key, separator) {
+  const input = document.getElementById('chipInput_' + key);
+  const dropdown = document.getElementById('chipDropdown_' + key);
+  const query = input.value.toLowerCase().trim();
+  const suggestions = JSON.parse(dropdown.dataset.suggestions || '[]');
+  const firstPath = Array.from(state.selectedPaths)[0];
+  const f = state.files.get(firstPath);
+  if (!f) return;
+
+  const current = new Set((f.attrs[key] || '').split(separator).map(s => s.trim()).filter(Boolean));
+  let filtered = suggestions;
+  if (query) {
+    filtered = suggestions.filter(s => s.toLowerCase().includes(query));
+  }
+
+  let html = '';
+  for (const s of filtered) {
+    const applied = current.has(s);
+    html += `<div class="ac-item${applied ? ' applied' : ''}" onclick="addChip('${escAttr(key)}', '${escAttr(s)}', '${separator}')">
+      ${applied ? '<span class="ac-item-check">&#10003;</span>' : ''}
+      <span class="ac-item-name">${highlightMatch(s, query)}</span>
+    </div>`;
+  }
+
+  if (query && !suggestions.some(s => s.toLowerCase() === query)) {
+    html += `<div class="ac-custom" onclick="addChip('${escAttr(key)}', '${escAttr(query)}', '${separator}')">+ Add custom: <b>${escHtml(query)}</b></div>`;
+  }
+
+  dropdown.innerHTML = html;
+  dropdown.classList.toggle('open', html.length > 0);
+}
+
+function chipInputKeydown(e, key, separator) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = document.getElementById('chipInput_' + key);
+    const dropdown = document.getElementById('chipDropdown_' + key);
+    const highlighted = dropdown.querySelector('.ac-item.highlighted:not(.applied)');
+    if (highlighted) {
+      highlighted.click();
+    } else if (input.value.trim()) {
+      addChip(key, input.value.trim(), separator);
+    }
+  } else if (e.key === 'Escape') {
+    document.getElementById('chipDropdown_' + key).classList.remove('open');
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const dropdown = document.getElementById('chipDropdown_' + key);
+    const items = dropdown.querySelectorAll('.ac-item:not(.applied)');
+    const highlighted = dropdown.querySelector('.ac-item.highlighted');
+    if (e.key === 'ArrowDown') {
+      if (!highlighted && items.length) { items[0].classList.add('highlighted'); }
+      else if (highlighted) {
+        highlighted.classList.remove('highlighted');
+        const arr = Array.from(items); const idx = arr.indexOf(highlighted);
+        if (idx < arr.length - 1) arr[idx + 1].classList.add('highlighted');
+      }
+    } else {
+      if (highlighted) {
+        highlighted.classList.remove('highlighted');
+        const arr = Array.from(items); const idx = arr.indexOf(highlighted);
+        if (idx > 0) arr[idx - 1].classList.add('highlighted');
+      }
+    }
+  }
+}
+
+function addChip(key, value, separator) {
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (!f) continue;
+    const items = (f.attrs[key] || '').split(separator).map(s => s.trim()).filter(Boolean);
+    if (!items.includes(value)) {
+      items.push(value);
+      f.attrs[key] = items.join(separator);
+    }
+    updateCardDirty(p);
+  }
+  renderDetail();
+  updateDirtyCount();
+}
+
+function removeChip(key, value, separator) {
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (!f) continue;
+    const items = (f.attrs[key] || '').split(separator).map(s => s.trim()).filter(Boolean).filter(s => s !== value);
+    f.attrs[key] = items.join(separator);
+  }
+  renderDetail();
+  updateDirtyCount();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ATTRIBUTE UPDATE
+// ═══════════════════════════════════════════════════════════════════
+
+function updateAttr(key, value) {
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (f) f.attrs[key] = value;
+    updateCardDirty(p);
+  }
+  updateDirtyCount();
+  // Update dirty badge in detail header
+  const anyDirty = Array.from(state.selectedPaths).some(p => isDirty(p));
+  const badge = document.querySelector('.detail-header .dirty-badge');
+  if (anyDirty && !badge) {
+    const h2 = document.querySelector('.detail-header h2');
+    if (h2) h2.insertAdjacentHTML('beforeend', ' <span class="dirty-badge">Modified</span>');
+  } else if (!anyDirty && badge) {
+    badge.remove();
+  }
+  const btns = document.querySelectorAll('.detail-actions .btn');
+  btns.forEach(b => b.disabled = !anyDirty);
+}
+
+function revertFile() {
+  for (const p of state.selectedPaths) {
+    const f = state.files.get(p);
+    if (f) f.attrs = { ...f.originalAttrs };
+    updateCardDirty(p);
+  }
+  renderDetail();
+  updateDirtyCount();
+}
+
+async function saveSelected() {
+  const paths = Array.from(state.selectedPaths).filter(p => isDirty(p));
+  if (paths.length === 0) return;
+  let saved = 0;
+  for (const p of paths) {
+    try { await saveSVG(p); saved++; } catch (e) { console.error('Save failed:', p, e); }
+  }
+  if (paths.length > 1) showToast(`Saved ${saved} of ${paths.length} files`, saved === paths.length ? 'success' : 'error');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SAVE MODULE
+// ═══════════════════════════════════════════════════════════════════
+
+async function saveSVG(path) {
+  const f = state.files.get(path);
+  if (!f) return;
+
+  try {
+    // Read full file content
+    const file = await f.handle.getFile();
+    let text = await file.text();
+
+    // For each attribute, find and replace or add
+    const allKeys = new Set([...Object.keys(f.attrs), ...Object.keys(f.originalAttrs)]);
+    for (const key of allKeys) {
+      const attrName = 'data-' + key;
+      const escapedAttrName = attrName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const newValue = f.attrs[key];
+
+      if (newValue === undefined || newValue === '') {
+        // Remove the attribute if empty and it existed
+        const removeRegex = new RegExp(`\\s*${escapedAttrName}="[^"]*"`, 'i');
+        text = text.replace(removeRegex, '');
+      } else {
+        const escaped = newValue.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const existsRegex = new RegExp(`(${escapedAttrName})="[^"]*"`, 'i');
+        if (existsRegex.test(text)) {
+          text = text.replace(existsRegex, `$1="${escaped}"`);
+        } else {
+          // Add new attribute before the first > in <svg tag
+          text = text.replace(/(<svg\b[^>]*?)(\/?>)/, `$1\n  ${attrName}="${escaped}"$2`);
+        }
+      }
+    }
+
+    // Write back
+    const writable = await f.handle.createWritable();
+    await writable.write(text);
+    await writable.close();
+
+    // Update original attrs and blob
+    f.originalAttrs = { ...f.attrs };
+    // Refresh blob
+    const newFile = await f.handle.getFile();
+    if (f.blobUrl) URL.revokeObjectURL(f.blobUrl);
+    f.blobUrl = URL.createObjectURL(newFile);
+
+    updateDirtyCount();
+    updateHeaderStats();
+    renderDetail();
+    updateCardDirty(path);
+    // Update card thumbnail with new blob
+    const grid = document.getElementById('mainGrid');
+    const card = grid.querySelector(`[data-path="${CSS.escape(path)}"]`);
+    if (card) {
+      const img = card.querySelector('img');
+      if (img) img.src = f.blobUrl;
+    }
+    showToast('Saved: ' + f.name, 'success');
+  } catch (err) {
+    console.error('Save failed:', err);
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+async function saveAll() {
+  const dirty = getDirtyFiles();
+  if (dirty.length === 0) return;
+
+  let saved = 0;
+  for (const path of dirty) {
+    try {
+      await saveSVG(path);
+      saved++;
+    } catch (err) {
+      console.error('Failed to save:', path, err);
+    }
+  }
+  showToast(`Saved ${saved} of ${dirty.length} files`, saved === dirty.length ? 'success' : 'error');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function escAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast ' + (type || '') + ' show';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function updateHeaderStats() {
+  const el = document.getElementById('headerStats');
+  const total = state.files.size;
+  const dirty = getDirtyFiles().length;
+  el.innerHTML = `<b>${total}</b> symbols${dirty > 0 ? ` &middot; <b style="color:var(--orange)">${dirty}</b> modified` : ''}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+
+if (!('showDirectoryPicker' in window)) {
+  document.getElementById('unsupported').style.display = 'flex';
+}
+
+// Add datalist for KV keys
+const dl = document.createElement('datalist');
+dl.id = 'dl_kvkeys';
+Object.keys(TAG_KEYS_WITH_VALUES).forEach(k => {
+  const opt = document.createElement('option');
+  opt.value = k;
+  dl.appendChild(opt);
+});
+document.body.appendChild(dl);
+
+</script>
+</body>
+</html>
